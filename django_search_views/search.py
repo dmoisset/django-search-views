@@ -1,29 +1,51 @@
 import functools
 import operator
 
+from django.template.response import TemplateResponse
+
 from django.db.models import Q
+from django.db.modelsȯptions import get_verbose_name
+
+from django_search_views.forms import SearchForm
+
 
 class InvalidConfiguration(Exception):
     pass
 
 class SearchCategory(object):
-    @classmethod
-    @functools.lru_cache(1)
-    def search_form(cls):
-        """Returns a Form class usable for queries in this category"""
-        raise NotImplementedError
-        
-    @classmethod
-    @functools.lru_cache(1)
-    def search_view(cls):
-        """Returns a view that can do search in this category"""
-        raise NotImplementedError
+
+    form = SearchForm
 
     @classmethod
-    @functools.lru_cache(1)
+    def search_view(cls):
+        """Returns a view that can do search in this category"""
+        def view(request):
+            name = get_verbose_name(cls.__name__).replace(' ','_')
+            context = {
+                'form': cls.form,
+            }
+            return TemplateResponse(request, 'search/search_%s.html' % name, context)
+        return view
+
+    @classmethod
     def results_view(cls):
         """Returns a view with search results for this category"""
-        raise NotImplementedError
+        self = cls()
+        def view(request):
+            results = None
+            query = None
+            form = cls.form(request.GET)
+            name = get_verbose_name(cls.__name__).replace(' ','_')
+            if form.is_valid():
+                results = self.get_results(form.cleaned_data, request)
+                query = form.cleaned_data
+            context = {
+                'form': form,
+                'results': results,
+                'query_data': query
+            }
+            return TemplateResponse(request, 'search/results_%s.html' % name, context)
+        return view
 
     def get_results(self, cleaned_data, request=None):
         """
@@ -65,42 +87,34 @@ class SearchCategory(object):
         q = functools.reduce(operator.or_, q_lookups)
         return queryset.filter(q)
         
-    
-
 class Search(object):
 
     @classmethod
-    @functools.lru_cache(1)
     def search_form(cls):
         """Returns a Form class usable for generic queries"""
         raise NotImplementedError
         
     @classmethod
-    @functools.lru_cache(1)
     def category_search_form(cls):
         """Returns a Form class usable for querying a user-selected category"""
         raise NotImplementedError
 
     @classmethod
-    @functools.lru_cache(1)
     def search_view(cls):
         """Returns a view that can do a generic search"""
         raise NotImplementedError
 
     @classmethod
-    @functools.lru_cache(1)
     def category_search_view(cls):
         """Returns a view that can do a generic search"""
         raise NotImplementedError
 
     @classmethod
-    @functools.lru_cache(1)
     def results_view(cls):
         """Returns a view with search results grouped by category"""
         raise NotImplementedError
 
     @classmethod
-    @functools.lru_cache(1)
     def category_search_view(cls):
         """Returns a view that can do a generic search"""
         raise NotImplementedError
