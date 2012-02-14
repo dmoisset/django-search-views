@@ -71,7 +71,7 @@ class SearchCategory(object):
             if hasattr(self, 'queryset'):
                 queryset = self.queryset
             else:
-                queryset = self.model.default_manager.all()
+                queryset = self.model._default_manager.all()
             lookups = self.lookups
         except AttributeError:
             raise InvalidConfiguration("%s: You need to define model/queryset and lookups, "
@@ -83,7 +83,7 @@ class SearchCategory(object):
                                        type(self).__name__)
             
         query_string = cleaned_data['q']
-        q_lookups = (Q(lookup=query_string) for lookup in lookups)
+        q_lookups = (Q(**{lookup: query_string}) for lookup in lookups)
         q = functools.reduce(operator.or_, q_lookups)
         return queryset.filter(q)
         
