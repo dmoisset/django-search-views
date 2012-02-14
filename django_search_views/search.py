@@ -119,8 +119,12 @@ class Search(object):
 
     @classmethod
     def search_form(cls):
-        """Returns a Form class usable for generic queries"""
-        raise NotImplementedError
+        """
+        Returns a Form class usable for generic queries on every category
+        
+        Override this to use another class.
+        """
+        return SearchForm
         
     @classmethod
     def category_search_form(cls):
@@ -129,22 +133,74 @@ class Search(object):
 
     @classmethod
     def search_view(cls):
-        """Returns a view that can do a generic search"""
-        raise NotImplementedError
+        """
+        Returns a view that can do a search on all categories
+        
+        You can set attribute search_template to override the template used;
+        otherwise the template is search/search_class_name.html where
+        class_name is the lowercase class name.
+        
+        The template context has:
+            - form: the search form
+        """
+        def view(request):
+            name = get_verbose_name(cls.__name__).replace(' ','_')
+            context = {
+                'form': cls.search_form(),
+            }
+            template = getattr(cls, 'search_template', 'search/search_%s.html' % name)
+            return TemplateResponse(request, template, context)
+        return view
 
     @classmethod
     def category_search_view(cls):
-        """Returns a view that can do a generic search"""
+        """Returns a view that can do a search on a user selectable category"""
         raise NotImplementedError
 
     @classmethod
     def results_view(cls):
-        """Returns a view with search results grouped by category"""
-        raise NotImplementedError
+        """Returns a view with search results grouped by category
+        
+        See the description of get_results() to see how results are looked
+        up.
+        
+        You can set attribute results_template to override the template used;
+        otherwise the template is search/results_class_name.html where
+        class_name is the lowercase class name
 
-    @classmethod
-    def category_search_view(cls):
-        """Returns a view that can do a generic search"""
+        The template context has:
+            - form: the search form
+            - results: a list of pairs (category, results). Each category is
+              a SearchCategory, while results is the list (or queryset) of found
+              results for that category.
+            - query_data: the fields queried
+        """
+        if not hasattr(cls, 'categories'):
+            raise InvalidConfiguration('No categories defined')
+        def view(request):
+            results =[]
+            query = None
+            form = cls.search_form()(request.GET)
+            
+            if form.is_valid():
+                for c in cls.categories:
+                    if callable(c):
+                        # We probably have a class, or a function, not a
+                        # SearchCategory instance. call/create isntance:
+                        c = c()
+                    results.append((c, c.get_results(form.cleaned_data, request)))
+                query = form.cleaned_data
+            context = {
+                'form': form,
+                'results': results,
+                'query_data': query
+            }
+            name = get_verbose_name(cls.__name__).replace(' ','_')
+            template = getattr(cls, 'search_template', 'search/results_%s.html' % name)
+            return TemplateResponse(request, template, context)
+        return view
+
+
         raise NotImplementedError
 
     @classmethod
