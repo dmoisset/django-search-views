@@ -6,7 +6,7 @@ from django.template.response import TemplateResponse
 from django.db.models import Q
 from django.db.models.options import get_verbose_name
 
-from django_search_views.forms import SearchForm
+from django_search_views.forms import SearchForm, CategorySearchForm
 
 
 class InvalidConfiguration(Exception):
@@ -129,7 +129,7 @@ class Search(object):
     @classmethod
     def category_search_form(cls):
         """Returns a Form class usable for querying a user-selected category"""
-        raise NotImplementedError
+        return CategorySearchForm
 
     @classmethod
     def search_view(cls):
@@ -144,18 +144,46 @@ class Search(object):
             - form: the search form
         """
         def view(request):
-            name = get_verbose_name(cls.__name__).replace(' ','_')
+            form = cls.search_form()()
             context = {
-                'form': cls.search_form(),
+                'form': form,
             }
+            name = get_verbose_name(cls.__name__).replace(' ','_')
             template = getattr(cls, 'search_template', 'search/search_%s.html' % name)
             return TemplateResponse(request, template, context)
         return view
 
     @classmethod
     def category_search_view(cls):
-        """Returns a view that can do a search on a user selectable category"""
-        raise NotImplementedError
+        """
+        Returns a view that can do a search on a user selectable category
+        
+        You can set attribute search_template to override the template used;
+        otherwise the template is search/search_class_name.html where
+        class_name is the lowercase class name.
+        
+        The template context has:
+            - form: the search form
+        """
+        choices = [('', 'All categories')]
+        for c in cls.categories:
+            if callable(c):
+                # We probably have a class, or a function, not a
+                # SearchCategory instance. call/create instance:
+                c = c()
+            choices.append((len(choices), c.verbose_name()))
+        
+        def view(request):
+            name = get_verbose_name(cls.__name__).replace(' ','_')
+            form = cls.category_search_form()()
+            # Set choices            
+            form.fields['category'].choices = choices
+            context = {
+                'form': form,
+            }
+            template = getattr(cls, 'search_template', 'search/search_%s.html' % name)
+            return TemplateResponse(request, template, context)
+        return view
 
     @classmethod
     def results_view(cls):
