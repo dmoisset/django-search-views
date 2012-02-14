@@ -4,7 +4,7 @@ import operator
 from django.template.response import TemplateResponse
 
 from django.db.models import Q
-from django.db.modelsȯptions import get_verbose_name
+from django.db.models.options import get_verbose_name
 
 from django_search_views.forms import SearchForm
 
