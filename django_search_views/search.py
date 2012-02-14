@@ -16,26 +16,53 @@ class SearchCategory(object):
 
     form = SearchForm
 
-    @classmethod
-    def search_view(cls):
-        """Returns a view that can do search in this category"""
+    def verbose_name(self):
+        """
+        This is used in templates to get a label for titles under this category
+        """
+        return get_verbose_name(type(self).__name__)
+
+    def search_view(self):
+        """
+        Returns a view that can do search in this category
+        
+        You can set attribute search_template to override the template used;
+        otherwise the template is search/search_class_name.html where
+        class_name is the lowercase class name.
+        
+        The template context has:
+            - form: the search form
+        """
         def view(request):
-            name = get_verbose_name(cls.__name__).replace(' ','_')
+            name = get_verbose_name(type(self).__name__).replace(' ','_')
             context = {
-                'form': cls.form,
+                'form': self.form,
             }
-            return TemplateResponse(request, 'search/search_%s.html' % name, context)
+            template = getattr(self, 'search_template', 'search/search_%s.html' % name)
+            return TemplateResponse(request, template, context)
         return view
 
-    @classmethod
-    def results_view(cls):
-        """Returns a view with search results for this category"""
-        self = cls()
+    def results_view(self):
+        """
+        Returns a view with search results for this category.
+        
+        See the description of get_results() to see how results are looked
+        up.
+        
+        You can set attribute results_template to override the template used;
+        otherwise the template is search/results_class_name.html where
+        class_name is the lowercase class name
+
+        The template context has:
+            - form: the search form
+            - results: the list (or queryset) of found results
+            - query_data: the fields queried
+        """
         def view(request):
             results = None
             query = None
-            form = cls.form(request.GET)
-            name = get_verbose_name(cls.__name__).replace(' ','_')
+            form = self.form(request.GET)
+            name = get_verbose_name(self.__name__).replace(' ','_')
             if form.is_valid():
                 results = self.get_results(form.cleaned_data, request)
                 query = form.cleaned_data
@@ -44,7 +71,8 @@ class SearchCategory(object):
                 'results': results,
                 'query_data': query
             }
-            return TemplateResponse(request, 'search/results_%s.html' % name, context)
+            template = getattr(self, 'results_template', 'search/results_%s.html' % name)
+            return TemplateResponse(request, template, context)
         return view
 
     def get_results(self, cleaned_data, request=None):
