@@ -118,6 +118,17 @@ class SearchCategory(object):
         
 class Search(object):
 
+    # FIXME: a lot of duplicated code between the 2 result views
+
+    def __init__(self):
+        self.category_instances = []
+        for c in self.categories:
+            if callable(c):
+                # We probably have a class, or a function, not a
+                # SearchCategory instance. call/create instance:
+                c = c()
+            self.category_instances.append(c)
+
     def search_form(self):
         """
         Returns a Form class usable for generic queries on every category
@@ -157,11 +168,7 @@ class Search(object):
 
     def _set_choices(self, form):
         choices = [('', 'All categories')]
-        for c in self.categories:
-            if callable(c):
-                # We probably have a class, or a function, not a
-                # SearchCategory instance. call/create instance:
-                c = c()
+        for c in self.category_instances:
             choices.append((len(choices)-1, c.verbose_name()))
         form.fields['category'].choices = choices
     
@@ -227,12 +234,7 @@ class Search(object):
                 form = formclass(request.GET)
                 
                 if form.is_valid():
-                    category_list = self.categories
-                    for c in category_list:
-                        if callable(c):
-                            # We probably have a class, or a function, not a
-                            # SearchCategory instance. call/create instance:
-                            c = c()
+                    for c in self.category_instances:
                         results.append((c, c.get_results(form.cleaned_data, request)))
                     query = form.cleaned_data
             else:
@@ -280,16 +282,12 @@ class Search(object):
                 self._set_choices(form)
                 
                 if form.is_valid():
-                    category_list = self.categories
+                    category_list = self.category_instances
                     if 'category' in form.cleaned_data:
                         category_index = form.cleaned_data['category']
                         if category_index != '':
-                            category_list = [self.categories[category_index]]
+                            category_list = [self.category_instances[category_index]]
                     for c in category_list:
-                        if callable(c):
-                            # We probably have a class, or a function, not a
-                            # SearchCategory instance. call/create instance:
-                            c = c()
                         results.append((c, c.get_results(form.cleaned_data, request)))
                     query = form.cleaned_data
             else:
@@ -312,6 +310,7 @@ class Search(object):
         """
         result = patterns('',
             url('^$', self.category_results_view(), name='category_results'),
+            url('^all$', self.results_view(), name='global_results'),
         )
         return result, 'search', namespace
         
