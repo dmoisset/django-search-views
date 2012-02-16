@@ -63,7 +63,7 @@ class SearchCategory(object):
             results = None
             query = None
             form = self.form(request.GET)
-            name = get_verbose_name(self.__name__).replace(' ','_')
+            name = get_verbose_name(type(self).__name__).replace(' ','_')
             if form.is_valid():
                 results = self.get_results(form.cleaned_data, request)
                 query = form.cleaned_data
@@ -118,8 +118,7 @@ class SearchCategory(object):
         
 class Search(object):
 
-    @classmethod
-    def search_form(cls):
+    def search_form(self):
         """
         Returns a Form class usable for generic queries on every category
         
@@ -127,12 +126,10 @@ class Search(object):
         """
         return SearchForm
         
-    @classmethod
-    def category_search_form(cls):
+    def category_search_form(self):
         """Returns a Form class usable for querying a user-selected category"""
         return CategorySearchForm
 
-    @classmethod
     def search_view(cls):
         """
         Returns a view that can do a search on all categories
@@ -147,21 +144,20 @@ class Search(object):
         def view(request):
             if request.GET:
                 # We're being asked for results, actually
-                return cls.results_view(request)
-            form = cls.search_form()()
+                return self.results_view(request)
+            form = self.search_form()()
             context = {
                 'form': form,
             }
-            name = get_verbose_name(cls.__name__).replace(' ','_')
-            template = getattr(cls, 'search_template', 'search/search_%s.html' % name)
+            name = get_verbose_name(type(self).__name__).replace(' ','_')
+            template = getattr(self, 'search_template', 'search/search_%s.html' % name)
             return TemplateResponse(request, template, context)
 
         return view
 
-    @classmethod
-    def _set_choices(cls, form):
+    def _set_choices(self, form):
         choices = [('', 'All categories')]
-        for c in cls.categories:
+        for c in self.categories:
             if callable(c):
                 # We probably have a class, or a function, not a
                 # SearchCategory instance. call/create instance:
@@ -170,8 +166,7 @@ class Search(object):
         form.fields['category'].choices = choices
     
     
-    @classmethod
-    def category_search_view(cls):
+    def category_search_view(self):
         """
         Returns a view that can do a search on a user selectable category
         
@@ -186,21 +181,20 @@ class Search(object):
         def view(request):
             if request.GET:
                 # We're being asked for results, actually
-                return cls.results_view(request)
-            name = get_verbose_name(cls.__name__).replace(' ','_')
-            form = cls.category_search_form()()
+                return self.results_view(request)
+            name = get_verbose_name(type(self).__name__).replace(' ','_')
+            form = self.category_search_form()()
             # Set choices            
-            cls._set_choices(form)
+            self._set_choices(form)
             context = {
                 'form': form,
             }
-            template = getattr(cls, 'search_template', 'search/search_%s.html' % name)
+            template = getattr(self, 'search_template', 'search/search_%s.html' % name)
             return TemplateResponse(request, template, context)
 
         return view
 
-    @classmethod
-    def results_view(cls):
+    def results_view(self):
         """
         Returns a view with search results grouped by category, and allowing
         to do generic search
@@ -219,13 +213,13 @@ class Search(object):
               results for that category.
             - query_data: the fields queried
         """
-        if not hasattr(cls, 'categories'):
+        if not hasattr(self, 'categories'):
             raise InvalidConfiguration('No categories defined')
         def view(request):
             results =[]
             query = None
             
-            formclass = cls.search_form()
+            formclass = self.search_form()
             if request.GET:
                 # this uses GET, not POST. so the way to realize if data
                 # is being posted and we need a form bound, instead of
@@ -233,7 +227,7 @@ class Search(object):
                 form = formclass(request.GET)
                 
                 if form.is_valid():
-                    category_list = cls.categories
+                    category_list = self.categories
                     for c in category_list:
                         if callable(c):
                             # We probably have a class, or a function, not a
@@ -248,13 +242,12 @@ class Search(object):
                 'results': results,
                 'query_data': query
             }
-            name = get_verbose_name(cls.__name__).replace(' ','_')
-            template = getattr(cls, 'search_template', 'search/results_%s.html' % name)
+            name = get_verbose_name(type(self).__name__).replace(' ','_')
+            template = getattr(self, 'search_template', 'search/results_%s.html' % name)
             return TemplateResponse(request, template, context)
         return view
 
-    @classmethod
-    def category_results_view(cls):
+    def category_results_view(self):
         """Returns a view with search results grouped by category, and allowing
         to do per-category search
         
@@ -272,26 +265,26 @@ class Search(object):
               results for that category.
             - query_data: the fields queried
         """
-        if not hasattr(cls, 'categories'):
+        if not hasattr(self, 'categories'):
             raise InvalidConfiguration('No categories defined')
         def view(request):
             results =[]
             query = None
             
-            formclass = cls.category_search_form()
+            formclass = self.category_search_form()
             if request.GET:
                 # this uses GET, not POST. so the way to realize if data
                 # is being posted and we need a form bound, instead of
                 # needing an empty unbound form, is checking request.GET
                 form = formclass(request.GET)
-                cls._set_choices(form)
+                self._set_choices(form)
                 
                 if form.is_valid():
-                    category_list = cls.categories
+                    category_list = self.categories
                     if 'category' in form.cleaned_data:
                         category_index = form.cleaned_data['category']
                         if category_index != '':
-                            category_list = [cls.categories[category_index]]
+                            category_list = [self.categories[category_index]]
                     for c in category_list:
                         if callable(c):
                             # We probably have a class, or a function, not a
@@ -301,25 +294,24 @@ class Search(object):
                     query = form.cleaned_data
             else:
                 form = formclass()
-                cls._set_choices(form)
+                self._set_choices(form)
             context = {
                 'form': form,
                 'results': results,
                 'query_data': query
             }
-            name = get_verbose_name(cls.__name__).replace(' ','_')
-            template = getattr(cls, 'search_template', 'search/results_%s.html' % name)
+            name = get_verbose_name(type(self).__name__).replace(' ','_')
+            template = getattr(self, 'search_template', 'search/results_%s.html' % name)
             return TemplateResponse(request, template, context)
         return view
 
-    @classmethod
-    def urls(cls, namespace='search'):
+    def urls(self, namespace='search'):
         """
         Returns a set of namespaced urls for global+category search and result
         views; This can be used in an include() on a URLConf
         """
         result = patterns('',
-            url('^$', cls.category_results_view(), name='category_results'),
+            url('^$', self.category_results_view(), name='category_results'),
         )
         return result, 'search', namespace
         
